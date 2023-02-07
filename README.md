@@ -6,15 +6,15 @@ Aexenum is a tool that automates the discovery and enumeration of subdomains, na
 
 Before you begin, ensure you have the following installed:
 
-    python3
-    dig
-    whois
-    subfinder
-    gobuster
-    whatweb
-    wafw00f
-    waybackurls
-    dns-info.py (provided in repository)
+* python3
+* dig
+* whois
+* subfinder
+* gobuster
+* whatweb
+* wafw00f
+* waybackurls
+* dns-info.py (provided in repository)
 
 ## Usage
 
