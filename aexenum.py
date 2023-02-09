@@ -62,15 +62,15 @@ def get_gobuster():
         if args.verbose:
             subprocess.Popen(gobuster_command_verbose, shell=True)
             if args.all:
-				#Use root nameservers
+                                #Use root nameservers
                 with open(f"{args.common_name}-rootnameservers.txt", "r") as rns:
                     nservers = rns.read().splitlines()
                     #Check the nservers list isn't empty
                     if len(nservers) > 0:
                         for nserver in nservers:
-							#Strip the leading whitespaces from the nameserver
+                                                        #Strip the leading whitespaces from the nameserver
                             nserver = nserver.strip()
-							#Run the command
+                                                        #Run the command
                             gobuster_command_root_verbose = f"gobuster dns -r {nserver} -q -w {args.wordlist} -d {line} -t 150 | tee -a {args.common_name}-gobuster.temp"
                             subprocess.run(gobuster_command_root_verbose, shell=True)
         else:
@@ -82,9 +82,9 @@ def get_gobuster():
                     #Check the nservers list isn't empty
                     if len(nservers) > 0:
                         for nserver in nservers:
-							#Strip the leading whitespaces from the nameserver and make sure nserver is only the nameserver
+                                                        #Strip the leading whitespaces from the nameserver and make sure nserver is only the nameserver
                             nserver = nserver.strip()
-							#Run the command
+                                                        #Run the command
                             gobuster_command_root = f"gobuster dns -r {nserver} -q -w {args.wordlist} -d {line} -t 150 -q | tee -a {args.common_name}-gobuster.temp"
                             subprocess.run(gobuster_command_root, shell=True)
 
@@ -100,9 +100,11 @@ def subdomain_merge():
         subprocess.run(["rm", subfinder_file, gobuster_file])
 
 def get_dig():
-    dig_command = ["dns-info.py", f"{args.common_name}-subdomains.txt", f"{args.common_name}-dns.txt"]
+    dig_command = ["dns-info.py", f"{args.common_name}-subdomains.txt", args.common_name]
     subprocess.run(dig_command)
 
+"""
+NO LONGER USED: Now executed in dns-info.py
 def get_vhosts():
     vhost_command = f"awk '{{if ($4 == \"A\") print $5}}' {args.common_name}-dns.txt | sort | uniq -c | sort -nr | awk '{{if ($1 > 1) print $2}}' | xargs -I {{}} grep {{}} {args.common_name}-dns.txt | awk '{{print $1, $5}}' > {args.common_name}-vhosts.txt"
     vhost_command_verbose = f"awk '{{if ($4 == \"A\") print $5}}' {args.common_name}-dns.txt | sort | uniq -c | sort -nr | awk '{{if ($1 > 1) print $2}}' | xargs -I {{}} grep {{}} {args.common_name}-dns.txt | awk '{{print $1, $5}}' | tee {args.common_name}-vhosts.txt"
@@ -110,6 +112,7 @@ def get_vhosts():
         subprocess.run(vhost_command_verbose, shell=True)
     else:
         subprocess.run(vhost_command, shell=True)
+"""
 
 def get_whatweb():
     whatweb_command = f"whatweb -i {args.common_name}-subdomains.txt --no-errors > {args.common_name}-whatweb.txt"
@@ -139,28 +142,21 @@ def get_waybackurls():
         else:
             subprocess.Popen(waybackurls_command, shell=True)
 
+
 get_rootnameservers()
 get_whois()
-subdomain_threads = []
-subdomain_threads.append(threading.Thread(target=get_subfinder))
-subdomain_threads.append(threading.Thread(target=get_gobuster))
+subdomain_threads = [threading.Thread(target=get_subfinder), threading.Thread(target=get_gobuster)]
 for thread in subdomain_threads:
     thread.start()
 for thread in subdomain_threads:
     thread.join()
 subdomain_merge()
-other_threads = []
-other_threads.append(threading.Thread(target=get_dig))
-other_threads.append(threading.Thread(target=get_wafw00f))
-other_threads.append(threading.Thread(target=get_waybackurls))
-other_threads.append(threading.Thread(target=get_whatweb))
+other_threads = [threading.Thread(target=get_dig), threading.Thread(target=get_wafw00f),
+                 threading.Thread(target=get_waybackurls), threading.Thread(target=get_whatweb)]
 for thread in other_threads:
     thread.start()
 for thread in other_threads:
-	thread.join()
-vhost_thread = threading.Thread(target=get_vhosts)
-vhost_thread.start()
-vhost_thread.join()
+    thread.join()
 print("-------------------------------------------")
 print("ENUMERATION COMPLETE")
 print("-------------------------------------------")
