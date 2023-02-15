@@ -1,4 +1,4 @@
-# aexenum
+# AexEnum
 
 Aexenum is a tool that automates the discovery and enumeration of subdomains, nameservers, vhosts, and WAFs. It uses subfinder and gobuster to perform the subdomain enumeration, it uses dig to find DNS record information, it uses wafw00f to scan for WAFs, and it uses whois, whatweb, and waybackurls to look for other potentially juicy information. 
 
