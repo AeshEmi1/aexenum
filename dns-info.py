@@ -18,7 +18,7 @@ ip_file = f"{sys.argv[2]}-ip.txt"
 ip_full_file = f"{sys.argv[2]}-ip-full.txt"
 ipv6_file = f"{sys.argv[2]}-ipv6.txt"
 ipv6_full_file = f"{sys.argv[2]}-ipv6-full.txt"
-
+valid_subdomains_file = f"{sys.argv[2]}-valid-subdomains.txt"
 
 def tryzonetransfer(domain, nameserver):
     try:
@@ -26,7 +26,7 @@ def tryzonetransfer(domain, nameserver):
                                      capture_output=True)
         zone_transfer = zone_result.stdout.decode()
         if zone_transfer != "":
-            return f"************Trying zone transfer for: {domain} using {nameserver}\n{zone_transfer}\n_________________________\n"
+            return f"************Trying zone transfer for: {domain} using {nameserver}\n{zone_transfer.strip()}\n***\n"
     except:
         pass
     return ""
@@ -37,7 +37,7 @@ def create_folders(name):
     try:
         os.makedirs(name)
     except FileExistsError:
-        print("Folder already exists! Skipping...")
+        print("Folder already exists! Skipping!")
 
 
 # for deduplicating ips
@@ -75,7 +75,7 @@ def get_ips(a_list, full_a_list, aaaa_list, full_aaaa_list):
     folder_name = "ips"
     create_folders(folder_name)
 
-    #IPV4
+    # IPV4
     if len(a_list) > 0:
 
         # Write non-duplicate ipv4 addresses
@@ -123,42 +123,48 @@ with open(dns_file, "w") as f:
     full_a_records = []
     aaaa_records = []
     full_aaaa_records = []
+
     for domain in domains:
         # Define a list of DNS record types to query
         output = f"####################\nDomain: {domain}\n####################\n"
-        record_types = ["NS", "A", "AAAA", "CNAME", "MX", "SOA", "TXT", "CAA", "HINFO", "AFSDB", "NAPTR", "ANY"]
+        record_types = ["NS", "CNAME", "A", "AAAA", "MX", "SOA", "TXT", "CAA", "HINFO", "AFSDB", "NAPTR", "SRV", ""]
         written_records = set()
 
         # Iterate over the list of record types
         for record_type in record_types:
             # Use subprocess.run to run the dig command and get the DNS record of the specified type for the domain
-            result = subprocess.run(["dig", "+noedns", "+short", "@8.8.8.8", record_type, domain], capture_output=True)
-
+            result = subprocess.run(f"dig +noedns +noall +answer {domain} {record_type}", shell=True,
+                                    capture_output=True)
             # Get the output from the command
             record = result.stdout.decode()
 
-            # Check that record is not empty
+            # Check that dns record is not empty
             if record != "":
-                dns_records = [f"{domain}\t{record_type}\t{dns_record}" for dns_record in record.strip().split("\n")]
-                # Get each line from the dig result
-                for filtered_record in dns_records:
+                for dns_record in record.strip().split("\n"):
+                    split_record = dns_record.strip().split()
+                    filtered_record = f"{split_record[0]}\t{split_record[3]}\t{split_record[4]}"
                     # Add the individual dns record to the set if it's not in there already
-                    print(filtered_record)
+                    # print(filtered_record)
                     if filtered_record not in written_records:
                         written_records.add(filtered_record)
                         # Check that the record type is NS
-                        if record_type == "NS":
-                            nameserver = filtered_record.strip().split()[-1]
+                        if filtered_record.split()[-2] == "NS":
+                            nameserver = filtered_record.split()[-1]
                             output += "\n" + tryzonetransfer(domain, nameserver)
                         # If it's an A record, add it to the vhost list
-                        if record_type == "A":
-                            a_records.append(filtered_record.strip().split()[-1])
+                        if filtered_record.split()[-2] == "A":
+                            a_records.append(filtered_record.split()[-1])
                             full_a_records.append(filtered_record)
                         # If it's an AAAA record, add it to the vhost list
-                        if record_type == "AAAA":
-                            aaaa_records.append(filtered_record.strip().split()[-1])
+                        if filtered_record.split()[-2] == "AAAA":
+                            aaaa_records.append(filtered_record.split()[-1])
                             full_aaaa_records.append(filtered_record)
                         output += "\n" + filtered_record
-        output += "\n_______________________\n"
-        f.write(output)
+
+        # Add to valid subdomain list
+        if len(written_records) > 0:
+            with open(valid_subdomains_file, "a") as subs:
+                subs.write(f"{domain}\n")
+            output += "\n_______________________\n"
+            f.write(output)
     get_ips(a_records, full_a_records, aaaa_records, full_aaaa_records)
