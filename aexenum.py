@@ -24,15 +24,19 @@ with open(args.domains_file, 'r') as f:
 # Get root nameservers
 def get_rootnameservers():
     for line in lines:
-        root_dig_command = f"dig NS {line} +noedns +short >> {args.common_name}-rootnameservers.temp"
-        root_dig_command_verbose = f"dig NS {line} +noedns +short | tee -a {args.common_name}-rootnameservers.temp"
         if args.verbose:
+            root_dig_command_verbose = f"dig NS {line} +noedns +short | tee -a {args.common_name}-rootnameservers.temp"
             subprocess.run(root_dig_command_verbose, shell=True)
         else:
+            root_dig_command = f"dig NS {line} +noedns +short >> {args.common_name}-rootnameservers.temp"
             subprocess.run(root_dig_command, shell=True)
 
+    # Deduplicate the root nameservers file
     deduplicate_command = f"sort -u {args.common_name}-rootnameservers.temp | awk 'NF' > {args.common_name}-rootnameservers.txt"
+    # Remove the temporary nameserver file
     remove_command = f"rm {args.common_name}-rootnameservers.temp"
+
+    # Run the commands
     subprocess.run(deduplicate_command, shell=True)
     subprocess.run(remove_command, shell=True)
 
@@ -40,29 +44,27 @@ def get_rootnameservers():
 # Whois Command
 def get_whois():
     for line in lines:
-        whois_command = f"whois {line} >> {args.common_name}-whois.txt"
-        whois_command_verbose = f"whois {line} | tee -a {args.common_name}-whois.txt"
-
         if args.verbose:
+            whois_command_verbose = f"whois {line} | tee -a {args.common_name}-whois.txt"
             subprocess.run(whois_command_verbose, shell=True)
         else:
+            whois_command = f"whois {line} >> {args.common_name}-whois.txt"
             subprocess.run(whois_command, shell=True)
 
 
 def get_subfinder():
-    subfinder_command = ["subfinder", "-dL", args.domains_file, "-all", "-o", f"{args.common_name}-subfinder.txt",
-                         "-silent"]
-    subfinder_command_verbose = ["subfinder", "-dL", args.domains_file, "-all", "-o",
-                                 f"{args.common_name}-subfinder.txt"]
-
     if args.verbose:
+        subfinder_command_verbose = ["subfinder", "-dL", args.domains_file, "-all", "-o",
+                                     f"{args.common_name}-subfinder.txt"]
         subprocess.run(subfinder_command_verbose)
     else:
+        subfinder_command = ["subfinder", "-dL", args.domains_file, "-all", "-o", f"{args.common_name}-subfinder.txt",
+                             "-silent"]
         subprocess.run(subfinder_command)
 
 
-
 def get_gobuster():
+    # Gobuster will run an instance for each domain in the domain file.
     final_commands = []
     for line in lines:
         final_commands.append(
@@ -84,6 +86,7 @@ def get_gobuster():
         process.wait()
 
 
+# Deletes gobuster's temporary files
 def delete_temp():
     subprocess.run(
         f"grep -o 'Found: .*' {args.common_name}-gobuster.temp | cut -d \" \" -f2 >> {args.common_name}-gobuster.txt",
@@ -104,45 +107,45 @@ def get_dig():
     dig_command = ["dns-info.py", f"{args.common_name}-subdomains.txt", args.common_name]
     subprocess.run(dig_command)
 
-
+# No longer used
 def get_vhosts():
-    vhost_command = f"awk '{{if ($4 == \"A\") print $5}}' {args.common_name}-dns.txt | sort | uniq -c | sort -nr | awk '{{if ($1 > 1) print $2}}' | xargs -I {{}} grep {{}} {args.common_name}-dns.txt | awk '{{print $1, $5}}' > {args.common_name}-vhosts.txt"
-    vhost_command_verbose = f"awk '{{if ($4 == \"A\") print $5}}' {args.common_name}-dns.txt | sort | uniq -c | sort -nr | awk '{{if ($1 > 1) print $2}}' | xargs -I {{}} grep {{}} {args.common_name}-dns.txt | awk '{{print $1, $5}}' | tee {args.common_name}-vhosts.txt"
     if args.verbose:
+        vhost_command_verbose = f"awk '{{if ($4 == \"A\") print $5}}' {args.common_name}-dns.txt | sort | uniq -c | sort -nr | awk '{{if ($1 > 1) print $2}}' | xargs -I {{}} grep {{}} {args.common_name}-dns.txt | awk '{{print $1, $5}}' | tee {args.common_name}-vhosts.txt"
         subprocess.run(vhost_command_verbose, shell=True)
     else:
+        vhost_command = f"awk '{{if ($4 == \"A\") print $5}}' {args.common_name}-dns.txt | sort | uniq -c | sort -nr | awk '{{if ($1 > 1) print $2}}' | xargs -I {{}} grep {{}} {args.common_name}-dns.txt | awk '{{print $1, $5}}' > {args.common_name}-vhosts.txt"
         subprocess.run(vhost_command, shell=True)
 
 
 def get_whatweb():
-    whatweb_command = f"whatweb -i {args.common_name}-subdomains.txt --no-errors > {args.common_name}-whatweb.txt"
-    whatweb_command_verbose = f"whatweb -i {args.common_name}-subdomains.txt --no-errors | tee {args.common_name}-whatweb.txt"
+    add_new_line = ""
     if args.verbose:
+        whatweb_command_verbose = f"whatweb -i {args.common_name}-subdomains.txt -a=3 --no-errors | tee {args.common_name}-whatweb.txt"
         subprocess.run(whatweb_command_verbose, shell=True)
     else:
+        whatweb_command = f"whatweb -i {args.common_name}-subdomains.txt -a=3 --no-errors > {args.common_name}-whatweb.txt"
         subprocess.run(whatweb_command, shell=True)
 
 
 def get_wafw00f():
-    wafw00f_command = ["wafw00f", "-i", f"{args.common_name}-subdomains.txt", "-o", f"{args.common_name}-wafw00f.txt"]
-    wafw00f_command_verbose = ["wafw00f", "-i", f"{args.common_name}-subdomains.txt", "-o",
-                               f"{args.common_name}-wafw00f.txt", "-v"]
-
     if args.verbose:
+        wafw00f_command_verbose = ["wafw00f", "-i", f"{args.common_name}-subdomains.txt", "-o",
+                                   f"{args.common_name}-wafw00f.txt", "-v"]
         subprocess.run(wafw00f_command_verbose)
     else:
+        wafw00f_command = ["wafw00f", "-i", f"{args.common_name}-subdomains.txt", "-o",
+                           f"{args.common_name}-wafw00f.txt"]
         subprocess.run(wafw00f_command)
 
 
 def get_waybackurls():
     for line in lines:
-        waybackurls_command = f"waybackurls {line} >> {args.common_name}-juicyinfo.txt"
-        waybackurls_command_verbose = f"waybackurls {line} | tee -a {args.common_name}-juicyinfo.txt"
-
         if args.verbose:
-            subprocess.Popen(waybackurls_command_verbose, shell=True)
+            waybackurls_command_verbose = f"waybackurls {line} | tee -a {args.common_name}-juicyinfo.txt"
+            subprocess.run(waybackurls_command_verbose, shell=True)
         else:
-            subprocess.Popen(waybackurls_command, shell=True)
+            waybackurls_command = f"waybackurls {line} >> {args.common_name}-juicyinfo.txt"
+            subprocess.run(waybackurls_command, shell=True)
 
 
 get_rootnameservers()
