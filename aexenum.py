@@ -118,7 +118,6 @@ def get_vhosts():
 
 
 def get_whatweb():
-    add_new_line = ""
     if args.verbose:
         whatweb_command_verbose = f"whatweb -i {args.common_name}-subdomains.txt -a=3 --no-errors | tee {args.common_name}-whatweb.txt"
         subprocess.run(whatweb_command_verbose, shell=True)
